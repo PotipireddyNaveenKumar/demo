@@ -60,7 +60,12 @@ class ClassificationUpdateRequest(BaseModel):
     urgency: str = Field(..., pattern="^(immediate_hazard|safety_risk|service_disruption|routine|unclear)$")
 
 def verify_official_auth(code: Optional[str]):
-    required_code = os.environ.get("OFFICIAL_ACCESS_CODE", "AdminSecret2026!#").strip()
+    required_code = os.environ.get("OFFICIAL_ACCESS_CODE", "").strip()
+    if not required_code:
+        raise HTTPException(
+            status_code=503,
+            detail="Official routes disabled: OFFICIAL_ACCESS_CODE is not configured in server environment."
+        )
     if not code or code.strip() != required_code:
         raise HTTPException(status_code=401, detail="Invalid official access code.")
 
@@ -69,8 +74,9 @@ def health():
     return {
         "status": "healthy",
         "service": "Civic Signal",
-        "gemini_model": os.environ.get("GEMINI_MODEL", "gemini-2.0-flash"),
-        "gemini_configured": bool(os.environ.get("GEMINI_API_KEY", "").strip())
+        "gemini_model": os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite"),
+        "gemini_configured": bool(os.environ.get("GEMINI_API_KEY", "").strip()),
+        "official_routes_enabled": bool(os.environ.get("OFFICIAL_ACCESS_CODE", "").strip())
     }
 
 @app.post("/api/reports")
@@ -136,13 +142,15 @@ def submit_report(req: ReportSubmitRequest):
 @app.get("/api/official/queue")
 def get_official_queue(
     status: Optional[str] = Query("all"),
+    department: Optional[str] = Query("all"),
     x_official_code: Optional[str] = Header(None, alias="X-Official-Code")
 ):
     verify_official_auth(x_official_code)
-    reports = get_queue(status)
+    reports = get_queue(status_filter=status, department_filter=department)
     return {
         "ok": True,
         "total": len(reports),
+        "department_filter": department,
         "reports": reports
     }
 

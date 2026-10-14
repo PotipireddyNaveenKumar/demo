@@ -35,10 +35,11 @@ Civic Signal is a transparent, explainable triage queue for municipal issues. Ci
 
 ## Google Gemini API Free Tier & Privacy Notice
 
-* **Model:** `gemini-2.0-flash` (Default; fallback to `gemini-1.5-flash`).
+* **Primary Model:** `gemini-3.5-flash-lite` (Verified fast free-tier response in AI Studio).
+* **Automatic Fallbacks:** `gemini-flash-latest`, `gemini-3.8-flash`.
 * **Free Tier Limits:** 15 RPM, 1,000,000 TPM, 1,500 RPD (Google AI Studio).
 * **Privacy Disclosure:** In accordance with Google AI Studio free tier terms, data submitted may be reviewed by human annotators to improve Google models. Citizens are warned not to submit sensitive PII.
-* **Failure / Quota Behavior:** If Gemini encounters a timeout (>4s), 429 quota exhaustion, or invalid response, the system **never fakes AI output**. It gracefully activates the validated manual entry fallback (`ai_status: "manual_fallback"`).
+* **Failure / Quota Behavior:** If Gemini encounters a timeout (>6s), 429 quota exhaustion, or invalid response, the system **never fakes AI output**. It gracefully activates the validated manual entry fallback (`ai_status: "manual_fallback"`).
 
 ---
 
@@ -60,7 +61,7 @@ Civic Signal is a transparent, explainable triage queue for municipal issues. Ci
    ```powershell
    cp .env.example .env
    ```
-   Set your `GEMINI_API_KEY` and private `OFFICIAL_ACCESS_CODE`.
+   Set your `GEMINI_API_KEY` and private `OFFICIAL_ACCESS_CODE` (at least 8 characters).
 
 4. **Run Application:**
    ```powershell
@@ -75,10 +76,14 @@ Civic Signal is a transparent, explainable triage queue for municipal issues. Ci
 
 ---
 
-## Deployment to Render (Free Tier)
+## Deployment to Render (Free Tier) & Ephemeral Storage
 
-This repository includes `render.yaml` and `.python-version` (pinned to Python 3.11.9) for 1-click deployment on Render:
+This repository includes `render.yaml` and `.python-version` (pinned to Python 3.11.9) for deployment on Render:
 
+> **Render Free Tier Ephemeral Storage Note:**  
+> Render free tier instances use an ephemeral container filesystem where SQLite database files reset on spin-down or reboot. Civic Signal automatically detects when the SQLite database is empty on application startup and re-seeds verified triage data (prominently labeled `SAMPLE DATA` in the queue), guaranteeing uninterrupted hackathon evaluation.
+
+### Render Setup:
 1. In the [Render Dashboard](https://dashboard.render.com/), click **New +** $\rightarrow$ **Web Service**.
 2. Connect your GitHub repository: `PotipireddyNaveenKumar/demo`.
 3. Configure settings:
@@ -87,6 +92,6 @@ This repository includes `render.yaml` and `.python-version` (pinned to Python 3
    * **Start Command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
 4. Set Environment Variables in Render:
    * `GEMINI_API_KEY`: *(Your Google AI Studio API key)*
-   * `OFFICIAL_ACCESS_CODE`: *(Your secure admin code, e.g. AdminSecret2026!#)*
-   * `GEMINI_MODEL`: `gemini-2.0-flash`
-5. Verify deployment: Navigate to your Render live URL (e.g. `https://civic-signal.onrender.com/api/health`) and ensure HTTP 200 `healthy`.
+   * `OFFICIAL_ACCESS_CODE`: *(Your secure private code)*
+   * `GEMINI_MODEL`: `gemini-3.5-flash-lite`
+5. Verify deployment: Navigate to your Render live URL (e.g. `https://your-service.onrender.com/api/health`) and ensure HTTP 200 `healthy`.

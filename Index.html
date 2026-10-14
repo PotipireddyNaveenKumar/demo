@@ -107,6 +107,45 @@
         margin-left: 8px;
       }
 
+      .sla-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 6px;
+        background: #fde8e8;
+        border: 1px solid #e02424;
+        color: #9b1c1c;
+        font-size: .75rem;
+        font-weight: 800;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+        margin-left: 8px;
+      }
+
+      .cluster-link {
+        display: inline-block;
+        margin: 6px 0 10px;
+        color: #0e513f;
+        font-weight: 750;
+        font-size: .88rem;
+        text-decoration: underline;
+        cursor: pointer;
+      }
+      .cluster-link:hover { color: #146c54; }
+
+      .cluster-banner {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        margin: 10px 0 16px;
+        background: #eaf5f0;
+        border: 1px solid #a7d3bf;
+        border-radius: 10px;
+        font-size: .92rem;
+        color: #0d352c;
+        font-weight: 650;
+      }
+
       .preview-box {
         margin-top: 10px;
         max-width: 200px;
@@ -296,6 +335,26 @@
           </div>
           <button id="load-queue" class="primary" type="button">Open queue</button>
         </div>
+
+        <!-- M2: Department Filter and Active Cluster Filter Banner -->
+        <div id="queue-filter-row" class="official-tools" style="margin: 8px 0 16px;" hidden>
+          <div class="field" style="max-width: 260px;">
+            <label for="queue-dept-filter">Department filter</label>
+            <select id="queue-dept-filter">
+              <option value="all">All Departments (Ranked)</option>
+              <option value="Public Works">Public Works</option>
+              <option value="Water & Sewage">Water & Sewage</option>
+              <option value="Sanitation Dept">Sanitation Dept</option>
+              <option value="Safety Desk">Safety Desk</option>
+              <option value="Community Affairs">Community Affairs</option>
+            </select>
+          </div>
+          <div id="active-cluster-banner" class="cluster-banner" style="display: none;">
+            <span id="cluster-banner-text"></span>
+            <button type="button" id="clear-cluster-filter" class="small-button">Show All Reports</button>
+          </div>
+        </div>
+
         <p class="inline-status" id="queue-status" role="status" aria-live="polite"></p>
         <p class="queue-meta" id="queue-meta"></p>
         <div class="queue-list" id="queue-list" aria-live="polite"></div>
@@ -500,12 +559,21 @@
         }
 
         // Official Queue
-        document.getElementById('load-queue').addEventListener('click', loadQueue);
+        document.getElementById('load-queue').addEventListener('click', () => loadQueue());
         officialCodeInput.addEventListener('keydown', function (e) {
           if (e.key === 'Enter') loadQueue();
         });
 
-        async function loadQueue() {
+        document.getElementById('queue-dept-filter').addEventListener('change', () => loadQueue());
+        document.getElementById('clear-cluster-filter').addEventListener('click', function () {
+          activeClusterFilter = null;
+          document.getElementById('active-cluster-banner').style.display = 'none';
+          loadQueue();
+        });
+
+        let activeClusterFilter = null;
+
+        async function loadQueue(clusterCategory, clusterAreaNorm, clusterAreaLabel) {
           queueStatus.textContent = '';
           queueStatus.classList.remove('error');
           const candidate = officialCodeInput.value.trim();
@@ -516,17 +584,27 @@
             return;
           }
 
+          if (clusterCategory && clusterAreaNorm) {
+            activeClusterFilter = { category: clusterCategory, areaNorm: clusterAreaNorm, areaLabel: clusterAreaLabel };
+          }
+
+          const dept = document.getElementById('queue-dept-filter').value || 'all';
           setQueueBusy(true);
           queueStatus.textContent = 'Loading prioritized community reports…';
 
           try {
-            const resp = await fetch('/api/official/queue', {
+            const resp = await fetch('/api/official/queue?department=' + encodeURIComponent(dept), {
               headers: { 'X-Official-Code': candidate }
             });
 
             setQueueBusy(false);
             if (resp.status === 401) {
               queueStatus.textContent = 'Invalid official access code.';
+              queueStatus.classList.add('error');
+              return;
+            }
+            if (resp.status === 503) {
+              queueStatus.textContent = 'Official routes disabled: OFFICIAL_ACCESS_CODE is not configured in server environment.';
               queueStatus.classList.add('error');
               return;
             }
@@ -539,7 +617,18 @@
             const data = await resp.json();
             officialCode = candidate;
             queueStatus.textContent = '';
-            renderQueue(data.reports || []);
+            document.getElementById('queue-filter-row').hidden = false;
+
+            let items = data.reports || [];
+            if (activeClusterFilter) {
+              items = items.filter(r => r.category === activeClusterFilter.category && r.area_normalized === activeClusterFilter.areaNorm);
+              document.getElementById('cluster-banner-text').textContent = 'Viewing Duplicate Cluster: ' + activeClusterFilter.category.toUpperCase() + ' in ' + activeClusterFilter.areaLabel + ' (' + items.length + ' matching)';
+              document.getElementById('active-cluster-banner').style.display = 'flex';
+            } else {
+              document.getElementById('active-cluster-banner').style.display = 'none';
+            }
+
+            renderQueue(items);
           } catch (err) {
             setQueueBusy(false);
             queueStatus.textContent = 'Network error loading queue: ' + err.message;
@@ -549,7 +638,7 @@
 
         function renderQueue(reports) {
           queueList.replaceChildren();
-          document.getElementById('queue-meta').textContent = reports.length + ' active report' + (reports.length === 1 ? '' : 's') + ' ranked by deterministic score.';
+          document.getElementById('queue-meta').textContent = reports.length + ' active report' + (reports.length === 1 ? '' : 's') + ' ranked by deterministic priority score.';
           
           if (!reports.length) return;
 
@@ -572,6 +661,13 @@
               idDiv.appendChild(sampleBadge);
             }
 
+            if (report.is_over_24h) {
+              const slaBadge = document.createElement('span');
+              slaBadge.className = 'sla-badge';
+              slaBadge.textContent = 'SLA: OPEN > 24H (+10 PTS)';
+              idDiv.appendChild(slaBadge);
+            }
+
             const title = document.createElement('h3');
             title.textContent = (report.category || 'General').toUpperCase() + ' · ' + report.area_label;
             identity.append(idDiv, title);
@@ -585,6 +681,19 @@
             const textP = document.createElement('p');
             textP.textContent = report.report_text;
             card.appendChild(textP);
+
+            // M2: Duplicate Cluster link
+            if (report.duplicate_matches > 0) {
+              const clusterLink = document.createElement('a');
+              clusterLink.className = 'cluster-link';
+              clusterLink.href = '#';
+              clusterLink.textContent = '🔗 Duplicate Cluster: ' + report.duplicate_matches + ' matching open report(s) in ' + report.area_label + ' (Click to filter)';
+              clusterLink.addEventListener('click', function (e) {
+                e.preventDefault();
+                loadQueue(report.category, report.area_normalized, report.area_label);
+              });
+              card.appendChild(clusterLink);
+            }
 
             const sub = document.createElement('p');
             sub.className = 'queue-sub';

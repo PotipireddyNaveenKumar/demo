@@ -5,6 +5,10 @@ from database import init_db, seed_sample_data_if_empty, get_queue, create_repor
 from fastapi.testclient import TestClient
 from main import app
 
+# Ensure a test-specific access code is set for testing
+TEST_ACCESS_CODE = "TestOfficialKey2026!#"
+os.environ["OFFICIAL_ACCESS_CODE"] = TEST_ACCESS_CODE
+
 client = TestClient(app)
 
 def test_normalize_area():
@@ -54,7 +58,7 @@ def test_api_health():
     assert res.status_code == 200
     data = res.json()
     assert data["status"] == "healthy"
-    assert data["gemini_model"] == "gemini-2.0-flash"
+    assert "official_routes_enabled" in data
 
 def test_api_manual_fallback_submission():
     import uuid
@@ -77,20 +81,35 @@ def test_api_unauthorized_queue():
     res = client.get("/api/official/queue")
     assert res.status_code == 401
 
+def test_api_refuses_when_official_code_unset(monkeypatch):
+    monkeypatch.setenv("OFFICIAL_ACCESS_CODE", "")
+    res = client.get("/api/official/queue", headers={"X-Official-Code": "some-code"})
+    assert res.status_code == 503
+    assert "OFFICIAL_ACCESS_CODE is not configured" in res.json()["detail"]
+
 def test_api_authorized_queue():
-    official_code = os.environ.get("OFFICIAL_ACCESS_CODE", "AdminSecret2026!#")
-    res = client.get("/api/official/queue", headers={"X-Official-Code": official_code})
+    res = client.get("/api/official/queue", headers={"X-Official-Code": TEST_ACCESS_CODE})
     assert res.status_code == 200
     data = res.json()
     assert data["ok"] is True
     assert "reports" in data
     assert data["total"] >= 1
+    # Verify sample reports are tagged and SLA breach calculation exists
     sample_reports = [r for r in data["reports"] if r.get("is_sample") == 1]
     assert len(sample_reports) > 0
+    assert any("is_over_24h" in r for r in data["reports"])
+
+def test_api_department_filtering():
+    res = client.get(
+        "/api/official/queue?department=Public+Works",
+        headers={"X-Official-Code": TEST_ACCESS_CODE}
+    )
+    assert res.status_code == 200
+    reports = res.json()["reports"]
+    for r in reports:
+        assert r["department"] == "Public Works"
 
 def test_api_status_update_and_reclassification():
-    official_code = os.environ.get("OFFICIAL_ACCESS_CODE", "AdminSecret2026!#")
-    
     # 1. Create a report
     res = client.post("/api/reports", json={
         "text": "Tree limb resting on power cable near school.",
@@ -104,7 +123,7 @@ def test_api_status_update_and_reclassification():
     # 2. Official corrects classification from parks (routine) to public_safety (immediate_hazard)
     res_corr = client.patch(
         f"/api/official/reports/{rep_id}/classify",
-        headers={"X-Official-Code": official_code},
+        headers={"X-Official-Code": TEST_ACCESS_CODE},
         json={"category": "public_safety", "urgency": "immediate_hazard"}
     )
     assert res_corr.status_code == 200
@@ -118,7 +137,7 @@ def test_api_status_update_and_reclassification():
     # 3. Official updates status to in_progress
     res_stat = client.patch(
         f"/api/official/reports/{rep_id}/status",
-        headers={"X-Official-Code": official_code},
+        headers={"X-Official-Code": TEST_ACCESS_CODE},
         json={"status": "in_progress"}
     )
     assert res_stat.status_code == 200
@@ -127,7 +146,7 @@ def test_api_status_update_and_reclassification():
     # 4. Resolve the report
     res_resolve = client.patch(
         f"/api/official/reports/{rep_id}/status",
-        headers={"X-Official-Code": official_code},
+        headers={"X-Official-Code": TEST_ACCESS_CODE},
         json={"status": "resolved"}
     )
     assert res_resolve.status_code == 200

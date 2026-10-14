@@ -142,17 +142,30 @@ def create_report(
         "is_sample": is_sample
     }
 
-def get_queue(status_filter: Optional[str] = None) -> List[Dict[str, Any]]:
-    """Retrieve queue ranked by score descending."""
+def get_queue(status_filter: Optional[str] = None, department_filter: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Retrieve queue ranked by score descending, with SLA breach calculation and optional department filtering."""
     conn = get_connection()
     cursor = conn.cursor()
+    
+    query = "SELECT * FROM reports WHERE 1=1"
+    params = []
+
     if status_filter and status_filter != 'all':
-        cursor.execute("SELECT * FROM reports WHERE status = ? ORDER BY score DESC, created_at DESC", (status_filter,))
+        query += " AND status = ?"
+        params.append(status_filter)
     else:
-        cursor.execute("SELECT * FROM reports WHERE status != 'resolved' ORDER BY score DESC, created_at DESC")
+        query += " AND status != 'resolved'"
+
+    if department_filter and department_filter != 'all':
+        query += " AND department = ?"
+        params.append(department_filter)
+
+    query += " ORDER BY score DESC, created_at DESC"
+    cursor.execute(query, params)
     rows = cursor.fetchall()
     conn.close()
     
+    now = datetime.now(timezone.utc)
     results = []
     for r in rows:
         d = dict(r)
@@ -160,7 +173,22 @@ def get_queue(status_filter: Optional[str] = None) -> List[Dict[str, Any]]:
             d['score_reasons'] = json.loads(d.get('score_reasons') or '[]')
         except Exception:
             d['score_reasons'] = []
+            
+        # Calculate SLA age: open > 24h
+        is_over_24h = False
+        hours_open = 0.0
+        try:
+            created_dt = datetime.fromisoformat(d['created_at'])
+            hours_open = (now - created_dt).total_seconds() / 3600.0
+            if hours_open >= 24.0 and d['status'] != 'resolved':
+                is_over_24h = True
+        except Exception:
+            pass
+
+        d['is_over_24h'] = is_over_24h
+        d['hours_open'] = round(hours_open, 1)
         results.append(d)
+        
     return results
 
 def get_report_by_id(report_id: str) -> Optional[Dict[str, Any]]:
