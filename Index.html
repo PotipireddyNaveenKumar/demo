@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f8f7">
+    <title>Civic Signal — Transparent Community Issue Triage</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #142a26;
+        --muted: #50645f;
+        --paper: #f5f8f7;
+        --card: #ffffff;
+        --line: #d5e0dc;
+        --green: #146c54;
+        --green-dark: #0e513f;
+        --pale-green: #e5f2ed;
+        --amber: #704500;
+        --pale-amber: #fff1d6;
+        --red: #8f2b23;
+        --pale-red: #fbe9e6;
+        --shadow: 0 12px 34px rgba(27, 67, 55, .08);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--paper); color: var(--ink); line-height: 1.55; }
+      button, input, textarea, select { font: inherit; }
+      button { cursor: pointer; }
+      button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, a:focus-visible {
+        outline: 3px solid #e6a732;
+        outline-offset: 3px;
+      }
+      .skip-link { position: absolute; left: -9999px; top: 8px; z-index: 5; padding: 10px 14px; background: white; color: var(--ink); }
+      .skip-link:focus { left: 8px; }
+      .topbar { background: #0d352c; color: white; }
+      .topbar-inner, main, footer { width: min(1040px, calc(100% - 32px)); margin: 0 auto; }
+      .topbar-inner { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+      .brand { display: flex; align-items: center; gap: 11px; font-weight: 750; letter-spacing: .01em; }
+      .brand-mark { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 11px; background: #b8e4d2; color: #0d352c; font-size: 19px; }
+      .brand-note { color: #d2e7df; font-size: .88rem; }
+      main { padding: 34px 0 52px; }
+      .intro { max-width: 740px; margin: 0 0 24px; }
+      .eyebrow { color: var(--green); font-size: .76rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+      h1 { margin: 5px 0 8px; font-size: clamp(2rem, 5vw, 3.15rem); line-height: 1.08; letter-spacing: -.045em; }
+      .intro p { max-width: 660px; margin: 0; color: var(--muted); font-size: 1.05rem; }
+      .switcher { display: inline-flex; padding: 5px; margin: 22px 0 17px; gap: 4px; border: 1px solid var(--line); border-radius: 14px; background: #eaf0ed; }
+      .tab { border: 0; border-radius: 10px; padding: 9px 15px; background: transparent; color: #425750; font-weight: 700; }
+      .tab[aria-selected="true"] { background: white; color: var(--green-dark); box-shadow: 0 2px 8px rgba(20, 42, 38, .1); }
+      .panel { border: 1px solid var(--line); border-radius: 19px; padding: clamp(18px, 4vw, 30px); background: var(--card); box-shadow: var(--shadow); }
+      .panel h2 { margin: 0 0 5px; font-size: 1.35rem; letter-spacing: -.02em; }
+      .panel-intro { margin: 0 0 22px; color: var(--muted); }
+      .notice { display: flex; gap: 12px; margin: 0 0 22px; padding: 14px 16px; border: 1px solid #e4d29f; border-radius: 13px; background: #fffaf0; color: #503914; font-size: .93rem; }
+      .notice-icon { flex: 0 0 auto; font-weight: 900; }
+      .notice strong { display: block; margin-bottom: 2px; }
+      .field { margin: 0 0 18px; }
+      label, legend { display: block; margin-bottom: 6px; font-weight: 700; }
+      .hint { display: block; margin-top: 5px; color: var(--muted); font-size: .88rem; }
+      input[type="text"], input[type="password"], textarea, select {
+        display: block; width: 100%; min-height: 46px; padding: 10px 12px;
+        border: 1px solid #adbfba; border-radius: 10px; background: white; color: var(--ink);
+      }
+      input[type="file"] { padding: 8px 0; }
+      textarea { min-height: 132px; resize: vertical; }
+      .counter { text-align: right; color: var(--muted); font-size: .82rem; }
+      .consent { display: flex; align-items: flex-start; gap: 10px; margin: 18px 0; color: #304b43; font-size: .92rem; }
+      .consent input { flex: 0 0 auto; width: 18px; height: 18px; margin: 3px 0 0; accent-color: var(--green); }
+      .button-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+      .primary, .secondary, .small-button { min-height: 44px; border-radius: 10px; padding: 10px 17px; font-weight: 750; }
+      .primary { border: 1px solid var(--green); background: var(--green); color: white; }
+      .primary:hover:not(:disabled) { background: var(--green-dark); }
+      .secondary, .small-button { border: 1px solid #aec1bb; background: white; color: #24463d; }
+      .secondary:hover:not(:disabled), .small-button:hover:not(:disabled) { background: #f0f6f3; }
+      button:disabled { cursor: wait; opacity: .65; }
+      .inline-status { min-height: 1.5em; margin: 12px 0 0; color: var(--muted); }
+      .inline-status.error { color: var(--red); font-weight: 650; }
+      .manual-panel { margin: 18px 0; padding: 17px; border: 1px solid #e7c985; border-radius: 13px; background: #fffaf0; }
+      .manual-panel h3 { margin: 0 0 4px; color: #5a3c0d; font-size: 1rem; }
+      .manual-panel p { margin: 0 0 15px; color: #614d2b; }
+      .manual-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+      .manual-grid .field { margin-bottom: 12px; }
+      .result { margin-top: 22px; padding: 20px; border: 1px solid #a7d3bf; border-radius: 14px; background: #f1faf5; }
+      .result h3 { margin: 0 0 4px; }
+      .result-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 15px 0; }
+      .result-cell { padding: 11px; border-radius: 10px; background: white; }
+      .result-cell span { display: block; color: var(--muted); font-size: .82rem; }
+      .result-cell strong { display: block; margin-top: 2px; }
+      .reasons { margin: 6px 0 0; padding-left: 20px; }
+      .reasons li { margin: 3px 0; }
+      .band { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 10px; font-size: .82rem; font-weight: 800; }
+      .band.urgent { background: var(--pale-red); color: var(--red); }
+      .band.standard { background: var(--pale-amber); color: var(--amber); }
+      .band.routine { background: var(--pale-green); color: var(--green-dark); }
+      
+      .sample-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 6px;
+        background: #fbf0d9;
+        border: 1px solid #d9a74a;
+        color: #794d07;
+        font-size: .75rem;
+        font-weight: 800;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        margin-left: 8px;
+      }
+
+      .preview-box {
+        margin-top: 10px;
+        max-width: 200px;
+        max-height: 140px;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        display: none;
+      }
+      .preview-box img { width: 100%; height: 100%; object-fit: cover; }
+
+      .honeypot { position: absolute !important; left: -10000px !important; width: 1px !important; height: 1px !important; overflow: hidden !important; }
+      .official-tools { display: flex; align-items: end; gap: 12px; margin: 16px 0 19px; }
+      .official-tools .field { flex: 1; margin: 0; }
+      .queue-meta { margin: 0 0 12px; color: var(--muted); font-weight: 600; }
+      .queue-list { display: grid; gap: 13px; }
+      .queue-card { padding: 17px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+      .queue-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+      .queue-id { color: var(--muted); font-size: .84rem; font-weight: 750; }
+      .queue-card h3 { margin: 3px 0 5px; font-size: 1.07rem; }
+      .queue-card > p { margin: 8px 0; overflow-wrap: anywhere; }
+      .queue-sub { color: var(--muted); font-size: .9rem; }
+      .queue-card details { margin: 11px 0; }
+      .queue-card summary { cursor: pointer; color: var(--green-dark); font-weight: 700; }
+      .queue-card .queue-reasons { margin: 7px 0 0; padding-left: 20px; color: #38534b; font-size: .9rem; }
+      .classification-editor { margin: 13px 0; padding: 13px; border: 1px solid var(--line); border-radius: 11px; background: #f8fbf9; }
+      .classification-editor > summary { cursor: pointer; color: var(--green-dark); font-weight: 750; }
+      .classification-editor .manual-grid { margin-top: 12px; }
+      .queue-actions { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-top: 12px; }
+      .queue-actions .field { flex: 1 1 180px; max-width: 240px; margin: 0; }
+      .small-button { min-height: 40px; padding: 8px 12px; }
+      footer { padding: 24px 0 32px; color: var(--muted); font-size: .85rem; border-top: 1px solid var(--line); margin-top: 40px; }
+      [hidden] { display: none !important; }
+
+      @media (max-width: 650px) {
+        .brand-note { display: none; }
+        .topbar-inner, main, footer { width: min(100% - 22px, 1040px); }
+        main { padding-top: 26px; }
+        .manual-grid { grid-template-columns: 1fr; gap: 0; }
+        .result-grid { grid-template-columns: 1fr; gap: 8px; }
+        .official-tools { align-items: stretch; flex-direction: column; }
+        .queue-head { flex-direction: column; }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="brand"><span class="brand-mark" aria-hidden="true">C</span><span>Civic Signal</span></div>
+        <span class="brand-note">Community triage & priority intelligence</span>
+      </div>
+    </header>
+
+    <main id="main-content">
+      <section class="intro" aria-labelledby="page-title">
+        <div class="eyebrow">Explainable Civic Prioritization</div>
+        <h1 id="page-title">Make community issues visible.</h1>
+        <p>Report an issue in your own words. Gemini AI classifies the report into transparent priority signals, clusters duplicates, and routes to city teams.</p>
+      </section>
+
+      <div class="switcher" role="tablist" aria-label="Choose a workspace">
+        <button class="tab" id="citizen-tab" type="button" role="tab" aria-controls="citizen-panel" aria-selected="true">Report an issue</button>
+        <button class="tab" id="official-tab" type="button" role="tab" aria-controls="official-panel" aria-selected="false">Official queue</button>
+      </div>
+
+      <!-- CITIZEN PANEL -->
+      <section class="panel" id="citizen-panel" role="tabpanel" aria-labelledby="citizen-tab">
+        <h2>Submit a community report</h2>
+        <p class="panel-intro">No account needed. Multilingual free text accepted.</p>
+
+        <div class="notice" role="note">
+          <span class="notice-icon" aria-hidden="true">ℹ</span>
+          <div>
+            <strong>Google AI Studio Free Tier Notice</strong>
+            Free-tier input may be processed for model improvement. Do not submit personal identities, phone numbers, or private data. For immediate life danger, call emergency services directly.
+          </div>
+        </div>
+
+        <form id="report-form" novalidate>
+          <div class="field">
+            <label for="area">Neighborhood or ward</label>
+            <input id="area" name="area" type="text" maxlength="80" autocomplete="address-level3" required aria-describedby="area-hint" placeholder="e.g. Downtown Main St, North Ward">
+            <span class="hint" id="area-hint">Use a district or cross-street name. Used for deterministic duplicate grouping.</span>
+          </div>
+
+          <div class="field">
+            <label for="report-text">What is the issue?</label>
+            <textarea id="report-text" name="text" maxlength="1200" minlength="8" required aria-describedby="text-hint text-counter" placeholder="Describe what you see in any language (e.g. Broken water pipe flooding sidewalk near the bus stop...)"></textarea>
+            <span class="hint" id="text-hint">Free text in any language. Gemini extracts urgency and impacts objectively.</span>
+            <div class="counter" id="text-counter" aria-live="off">0 / 1200</div>
+          </div>
+
+          <!-- PHOTO UPLOAD: Explicitly labeled preview only, not analysed -->
+          <div class="field">
+            <label for="photo-file">Optional photo hint</label>
+            <input id="photo-file" type="file" accept="image/*" aria-describedby="photo-hint">
+            <span class="hint" id="photo-hint">Preview only, not analysed by AI. Helpful visual record for field inspection.</span>
+            <div id="photo-preview-wrap" class="preview-box">
+              <img id="photo-preview" alt="User selected photo preview">
+            </div>
+          </div>
+
+          <div class="honeypot" aria-hidden="true">
+            <label for="website">Leave empty</label>
+            <input id="website" name="website" type="text" tabindex="-1" autocomplete="off">
+          </div>
+
+          <label class="consent" for="privacy-ack">
+            <input id="privacy-ack" type="checkbox" required>
+            <span>I have omitted personal sensitive info and understand this demo uses Google AI Studio free tier.</span>
+          </label>
+
+          <!-- MANUAL FALLBACK PANEL -->
+          <div id="manual-panel" class="manual-panel" hidden>
+            <h3>AI Extraction Unavailable — Manual Classification</h3>
+            <p id="fallback-message">Google Gemini API is currently unavailable or quota reached. Never fake AI output: select the objective signals below to proceed.</p>
+            <div class="manual-grid">
+              <div class="field">
+                <label for="manual-category">Category</label>
+                <select id="manual-category">
+                  <option value="">Select category</option>
+                  <option value="roads">Roads / Infrastructure</option>
+                  <option value="streetlights">Streetlights</option>
+                  <option value="water_drainage">Water / Drainage</option>
+                  <option value="waste">Waste</option>
+                  <option value="parks">Parks</option>
+                  <option value="public_safety">Public Safety</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="manual-urgency">Urgency signal</label>
+                <select id="manual-urgency">
+                  <option value="">Select urgency</option>
+                  <option value="immediate_hazard">Immediate hazard (+50)</option>
+                  <option value="safety_risk">Safety risk (+35)</option>
+                  <option value="service_disruption">Service disruption (+20)</option>
+                  <option value="routine">Routine (+5)</option>
+                  <option value="unclear">Unclear (+0)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="manual-impact">Impact</label>
+                <select id="manual-impact">
+                  <option value="single_location">Single location (+0)</option>
+                  <option value="multiple_people">Multiple people / Shared public space (+15)</option>
+                  <option value="unknown">Unknown</option>
+                </select>
+              </div>
+            </div>
+            <button id="retry-ai" class="secondary" type="button">Retry Gemini AI</button>
+          </div>
+
+          <div class="button-row">
+            <button class="primary" id="submit-report" type="submit">Submit report</button>
+          </div>
+          <p class="inline-status" id="submit-status" role="status" aria-live="polite"></p>
+        </form>
+
+        <!-- RECEIPT VIEW -->
+        <section id="receipt" class="result" aria-labelledby="receipt-title" hidden>
+          <h3 id="receipt-title" tabindex="-1">Report Registered</h3>
+          <p id="receipt-intro"></p>
+          <div class="result-grid">
+            <div class="result-cell"><span>Category</span><strong id="receipt-category"></strong></div>
+            <div class="result-cell"><span>Urgency signal</span><strong id="receipt-urgency"></strong></div>
+            <div class="result-cell"><span>Assigned Department</span><strong id="receipt-department"></strong></div>
+            <div class="result-cell"><span>Priority Score</span><strong><span id="receipt-band" class="band"></span> <span id="receipt-score"></span></strong></div>
+          </div>
+          <p id="receipt-summary"></p>
+          <p id="receipt-location"></p>
+          <p id="receipt-duplicates"></p>
+          <strong>Explainable Priority Breakdown</strong>
+          <ul class="reasons" id="receipt-reasons"></ul>
+        </section>
+      </section>
+
+      <!-- OFFICIAL QUEUE PANEL -->
+      <section class="panel" id="official-panel" role="tabpanel" aria-labelledby="official-tab" hidden>
+        <h2>Official Triage Queue</h2>
+        <p class="panel-intro">Ranked active queue computed by deterministic scoring engine with complete audit reasons.</p>
+        <div class="official-tools">
+          <div class="field">
+            <label for="official-code">Official access code</label>
+            <input id="official-code" type="password" autocomplete="current-password" maxlength="128" placeholder="Enter official access code">
+          </div>
+          <button id="load-queue" class="primary" type="button">Open queue</button>
+        </div>
+        <p class="inline-status" id="queue-status" role="status" aria-live="polite"></p>
+        <p class="queue-meta" id="queue-meta"></p>
+        <div class="queue-list" id="queue-list" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <footer>
+      Civic Signal — AI for Better Living & Smarter Communities Hackathon. Powered by Google Gemini & Python FastAPI.
+    </footer>
+
+    <script>
+      (function () {
+        'use strict';
+
+        const tabs = [
+          { button: document.getElementById('citizen-tab'), panel: document.getElementById('citizen-panel') },
+          { button: document.getElementById('official-tab'), panel: document.getElementById('official-panel') }
+        ];
+        const form = document.getElementById('report-form');
+        const reportText = document.getElementById('report-text');
+        const areaInput = document.getElementById('area');
+        const photoFileInput = document.getElementById('photo-file');
+        const photoPreviewWrap = document.getElementById('photo-preview-wrap');
+        const photoPreview = document.getElementById('photo-preview');
+        const manualPanel = document.getElementById('manual-panel');
+        const submitButton = document.getElementById('submit-report');
+        const submitStatus = document.getElementById('submit-status');
+        const receipt = document.getElementById('receipt');
+        const officialCodeInput = document.getElementById('official-code');
+        const queueStatus = document.getElementById('queue-status');
+        const queueList = document.getElementById('queue-list');
+        let manualMode = false;
+        let officialCode = '';
+        let photoName = '';
+
+        // Tab Switching
+        tabs.forEach(function (tab, index) {
+          tab.button.addEventListener('click', function () {
+            tabs.forEach(function (other, otherIndex) {
+              const selected = index === otherIndex;
+              other.button.setAttribute('aria-selected', selected ? 'true' : 'false');
+              other.panel.hidden = !selected;
+            });
+            tab.button.focus();
+          });
+        });
+
+        // Photo preview only, not analysed
+        photoFileInput.addEventListener('change', function () {
+          const file = photoFileInput.files[0];
+          if (file) {
+            photoName = file.name;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+              photoPreview.src = e.target.result;
+              photoPreviewWrap.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+          } else {
+            photoPreviewWrap.style.display = 'none';
+            photoName = '';
+          }
+        });
+
+        // Text counter
+        reportText.addEventListener('input', function () {
+          document.getElementById('text-counter').textContent = reportText.value.length + ' / 1200';
+        });
+
+        // Retry AI button
+        document.getElementById('retry-ai').addEventListener('click', function () {
+          manualMode = false;
+          manualPanel.hidden = true;
+          document.getElementById('manual-category').value = '';
+          document.getElementById('manual-urgency').value = '';
+          submitButton.textContent = 'Submit report';
+          submitStatus.textContent = 'Ready to re-try Gemini AI extraction.';
+          submitStatus.classList.remove('error');
+          submitButton.focus();
+        });
+
+        // Form Submit
+        form.addEventListener('submit', async function (event) {
+          event.preventDefault();
+          submitStatus.textContent = '';
+          submitStatus.classList.remove('error');
+          receipt.hidden = true;
+
+          const text = reportText.value.trim();
+          const area = areaInput.value.trim();
+          const privacyAck = document.getElementById('privacy-ack').checked;
+
+          if (text.length < 8 || text.length > 1200) {
+            showSubmitError('Please describe the issue in 8 to 1,200 characters.');
+            reportText.focus();
+            return;
+          }
+          if (area.length < 2 || area.length > 80) {
+            showSubmitError('Please enter a neighborhood or ward (2–80 characters).');
+            areaInput.focus();
+            return;
+          }
+          if (!privacyAck) {
+            showSubmitError('Please check the privacy confirmation before submitting.');
+            document.getElementById('privacy-ack').focus();
+            return;
+          }
+
+          if (manualMode) {
+            const mCat = document.getElementById('manual-category').value;
+            const mUrg = document.getElementById('manual-urgency').value;
+            if (!mCat || !mUrg) {
+              showSubmitError('Select category and urgency to complete manual submission.');
+              document.getElementById('manual-category').focus();
+              return;
+            }
+          }
+
+          const payload = {
+            text: text,
+            area: area,
+            photo_name: photoName || null
+          };
+
+          if (manualMode) {
+            payload.manual_category = document.getElementById('manual-category').value;
+            payload.manual_urgency = document.getElementById('manual-urgency').value;
+            payload.manual_impact = document.getElementById('manual-impact').value || 'single_location';
+          }
+
+          setSubmitting(true);
+          submitStatus.textContent = manualMode ? 'Registering manual report…' : 'Classifying signals with Gemini AI…';
+
+          try {
+            const resp = await fetch('/api/reports', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            if (!resp.ok) {
+              throw new Error('Server returned HTTP ' + resp.status);
+            }
+
+            const data = await resp.json();
+            setSubmitting(false);
+
+            if (data.manual_entry_required) {
+              manualMode = true;
+              manualPanel.hidden = false;
+              submitButton.textContent = 'Submit using manual entry';
+              submitStatus.textContent = data.message || 'AI extraction unavailable. Please select category & urgency.';
+              document.getElementById('manual-category').focus();
+              return;
+            }
+
+            if (data.ok && data.report) {
+              showReceipt(data.report);
+              submitStatus.textContent = 'Report successfully registered.';
+              manualMode = false;
+              manualPanel.hidden = true;
+              form.reset();
+              photoPreviewWrap.style.display = 'none';
+              document.getElementById('text-counter').textContent = '0 / 1200';
+              submitButton.textContent = 'Submit report';
+              document.getElementById('receipt-title').focus();
+            } else {
+              showSubmitError('Could not process report: ' + (data.error_reason || 'Unknown error'));
+            }
+          } catch (err) {
+            setSubmitting(false);
+            showSubmitError('Connection error: ' + err.message);
+          }
+        });
+
+        function showReceipt(report) {
+          const aiTag = report.ai_status === 'ai_extracted' ? 'Gemini AI structured extraction' : 'Manual entry fallback';
+          document.getElementById('receipt-intro').textContent = 'Reference ID: ' + report.id + ' (' + aiTag + ')';
+          document.getElementById('receipt-category').textContent = report.category || 'Categorized';
+          document.getElementById('receipt-urgency').textContent = report.urgency || 'Recorded';
+          document.getElementById('receipt-department').textContent = report.department;
+          
+          const band = document.getElementById('receipt-band');
+          band.textContent = report.band.toUpperCase();
+          band.className = 'band ' + report.band;
+          
+          document.getElementById('receipt-score').textContent = report.score + ' / 100';
+          document.getElementById('receipt-summary').textContent = report.summary ? 'Summary: ' + report.summary : '';
+          document.getElementById('receipt-location').textContent = report.location_hint ? 'Location Hint: ' + report.location_hint : 'Area: ' + report.area_label;
+          document.getElementById('receipt-duplicates').textContent = 'Other Unresolved Duplicates in Area: ' + report.duplicate_matches;
+
+          const reasonsList = document.getElementById('receipt-reasons');
+          reasonsList.replaceChildren();
+          (report.reasons || []).forEach(function (reason) {
+            const li = document.createElement('li');
+            li.textContent = reason;
+            reasonsList.appendChild(li);
+          });
+
+          receipt.hidden = false;
+          receipt.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // Official Queue
+        document.getElementById('load-queue').addEventListener('click', loadQueue);
+        officialCodeInput.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') loadQueue();
+        });
+
+        async function loadQueue() {
+          queueStatus.textContent = '';
+          queueStatus.classList.remove('error');
+          const candidate = officialCodeInput.value.trim();
+          if (!candidate) {
+            queueStatus.textContent = 'Please enter the official access code.';
+            queueStatus.classList.add('error');
+            officialCodeInput.focus();
+            return;
+          }
+
+          setQueueBusy(true);
+          queueStatus.textContent = 'Loading prioritized community reports…';
+
+          try {
+            const resp = await fetch('/api/official/queue', {
+              headers: { 'X-Official-Code': candidate }
+            });
+
+            setQueueBusy(false);
+            if (resp.status === 401) {
+              queueStatus.textContent = 'Invalid official access code.';
+              queueStatus.classList.add('error');
+              return;
+            }
+            if (!resp.ok) {
+              queueStatus.textContent = 'Server error loading queue (HTTP ' + resp.status + ')';
+              queueStatus.classList.add('error');
+              return;
+            }
+
+            const data = await resp.json();
+            officialCode = candidate;
+            queueStatus.textContent = '';
+            renderQueue(data.reports || []);
+          } catch (err) {
+            setQueueBusy(false);
+            queueStatus.textContent = 'Network error loading queue: ' + err.message;
+            queueStatus.classList.add('error');
+          }
+        }
+
+        function renderQueue(reports) {
+          queueList.replaceChildren();
+          document.getElementById('queue-meta').textContent = reports.length + ' active report' + (reports.length === 1 ? '' : 's') + ' ranked by deterministic score.';
+          
+          if (!reports.length) return;
+
+          reports.forEach(function (report) {
+            const card = document.createElement('article');
+            card.className = 'queue-card';
+
+            const head = document.createElement('div');
+            head.className = 'queue-head';
+            
+            const identity = document.createElement('div');
+            const idDiv = document.createElement('div');
+            idDiv.className = 'queue-id';
+            idDiv.textContent = report.id + ' · ' + formatDate(report.created_at);
+            
+            if (report.is_sample === 1) {
+              const sampleBadge = document.createElement('span');
+              sampleBadge.className = 'sample-badge';
+              sampleBadge.textContent = 'SAMPLE DATA';
+              idDiv.appendChild(sampleBadge);
+            }
+
+            const title = document.createElement('h3');
+            title.textContent = (report.category || 'General').toUpperCase() + ' · ' + report.area_label;
+            identity.append(idDiv, title);
+
+            const badge = document.createElement('span');
+            badge.className = 'band ' + report.band;
+            badge.textContent = report.band.toUpperCase() + ' · ' + report.score + ' / 100';
+            head.append(identity, badge);
+            card.appendChild(head);
+
+            const textP = document.createElement('p');
+            textP.textContent = report.report_text;
+            card.appendChild(textP);
+
+            const sub = document.createElement('p');
+            sub.className = 'queue-sub';
+            const aiSource = report.ai_status === 'ai_extracted' ? 'Gemini AI' : 'Manual Fallback';
+            sub.textContent = 'Urgency: ' + report.urgency + ' | Impact: ' + report.impact + ' | Dept: ' + report.department + ' (' + aiSource + ')';
+            card.appendChild(sub);
+
+            if (report.summary) {
+              const sum = document.createElement('p');
+              sum.className = 'queue-sub';
+              sum.textContent = 'Summary: ' + report.summary;
+              card.appendChild(sum);
+            }
+
+            if (report.photo_name) {
+              const photoNote = document.createElement('p');
+              photoNote.className = 'queue-sub';
+              photoNote.innerHTML = '📷 Photo attached: <em>' + report.photo_name + '</em> (preview only, not analysed)';
+              card.appendChild(photoNote);
+            }
+
+            // Score explanation
+            const details = document.createElement('details');
+            const summary = document.createElement('summary');
+            summary.textContent = 'Explainable score breakdown (' + report.duplicate_matches + ' open area duplicates)';
+            const reasonsUl = document.createElement('ul');
+            reasonsUl.className = 'queue-reasons';
+            (report.score_reasons || []).forEach(function (reason) {
+              const li = document.createElement('li');
+              li.textContent = reason;
+              reasonsUl.appendChild(li);
+            });
+            details.append(summary, reasonsUl);
+            card.appendChild(details);
+
+            // Classification correction
+            const corrDetails = document.createElement('details');
+            corrDetails.className = 'classification-editor';
+            const corrSum = document.createElement('summary');
+            corrSum.textContent = 'Official classification correction';
+            corrDetails.appendChild(corrSum);
+
+            const corrGrid = document.createElement('div');
+            corrGrid.className = 'manual-grid';
+            
+            const catSel = makeSelect('Category for ' + report.id, [
+              ['roads', 'Roads / Infrastructure'],
+              ['streetlights', 'Streetlights'],
+              ['water_drainage', 'Water / Drainage'],
+              ['waste', 'Waste'],
+              ['parks', 'Parks'],
+              ['public_safety', 'Public Safety'],
+              ['other', 'Other']
+            ], report.category);
+
+            const urgSel = makeSelect('Urgency for ' + report.id, [
+              ['immediate_hazard', 'Immediate hazard (+50)'],
+              ['safety_risk', 'Safety risk (+35)'],
+              ['service_disruption', 'Service disruption (+20)'],
+              ['routine', 'Routine (+5)'],
+              ['unclear', 'Unclear (+0)']
+            ], report.urgency);
+
+            corrGrid.append(catSel.wrap, urgSel.wrap);
+            corrDetails.appendChild(corrGrid);
+
+            const saveCorrBtn = document.createElement('button');
+            saveCorrBtn.className = 'small-button';
+            saveCorrBtn.type = 'button';
+            saveCorrBtn.textContent = 'Save correction';
+            saveCorrBtn.addEventListener('click', async function () {
+              saveCorrBtn.disabled = true;
+              saveCorrBtn.textContent = 'Saving…';
+              try {
+                const res = await fetch('/api/official/reports/' + report.id + '/classify', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json', 'X-Official-Code': officialCode },
+                  body: JSON.stringify({ category: catSel.select.value, urgency: urgSel.select.value })
+                });
+                if (res.ok) {
+                  loadQueue();
+                } else {
+                  alert('Error updating classification');
+                  saveCorrBtn.disabled = false;
+                  saveCorrBtn.textContent = 'Save correction';
+                }
+              } catch (e) {
+                alert('Network error: ' + e.message);
+                saveCorrBtn.disabled = false;
+                saveCorrBtn.textContent = 'Save correction';
+              }
+            });
+            corrDetails.appendChild(saveCorrBtn);
+            card.appendChild(corrDetails);
+
+            // Status actions
+            const actions = document.createElement('div');
+            actions.className = 'queue-actions';
+            const statField = document.createElement('div');
+            statField.className = 'field';
+            const statSelect = document.createElement('select');
+            [
+              { val: 'new', label: 'Status: New' },
+              { val: 'in_progress', label: 'Status: In Progress' },
+              { val: 'resolved', label: 'Status: Resolved' }
+            ].forEach(function (opt) {
+              const o = document.createElement('option');
+              o.value = opt.val;
+              o.textContent = opt.label;
+              statSelect.appendChild(o);
+            });
+            statSelect.value = report.status;
+            statField.appendChild(statSelect);
+
+            const saveStatBtn = document.createElement('button');
+            saveStatBtn.className = 'small-button';
+            saveStatBtn.type = 'button';
+            saveStatBtn.textContent = 'Update status';
+            saveStatBtn.addEventListener('click', async function () {
+              saveStatBtn.disabled = true;
+              saveStatBtn.textContent = 'Updating…';
+              try {
+                const res = await fetch('/api/official/reports/' + report.id + '/status', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json', 'X-Official-Code': officialCode },
+                  body: JSON.stringify({ status: statSelect.value })
+                });
+                if (res.ok) {
+                  loadQueue();
+                } else {
+                  alert('Error updating status');
+                  saveStatBtn.disabled = false;
+                  saveStatBtn.textContent = 'Update status';
+                }
+              } catch (e) {
+                alert('Network error: ' + e.message);
+                saveStatBtn.disabled = false;
+                saveStatBtn.textContent = 'Update status';
+              }
+            });
+
+            actions.append(statField, saveStatBtn);
+            card.appendChild(actions);
+            queueList.appendChild(card);
+          });
+        }
+
+        function makeSelect(labelTxt, options, selectedVal) {
+          const wrap = document.createElement('div');
+          wrap.className = 'field';
+          const lbl = document.createElement('label');
+          lbl.textContent = labelTxt;
+          const select = document.createElement('select');
+          options.forEach(function (opt) {
+            const o = document.createElement('option');
+            o.value = opt[0];
+            o.textContent = opt[1];
+            select.appendChild(o);
+          });
+          select.value = selectedVal;
+          wrap.append(lbl, select);
+          return { wrap: wrap, select: select };
+        }
+
+        function setSubmitting(busy) {
+          submitButton.disabled = busy;
+          submitButton.textContent = busy ? 'Processing…' : (manualMode ? 'Submit manual entry' : 'Submit report');
+        }
+
+        function setQueueBusy(busy) {
+          document.getElementById('load-queue').disabled = busy;
+          document.getElementById('load-queue').textContent = busy ? 'Loading…' : 'Open queue';
+        }
+
+        function showSubmitError(msg) {
+          submitStatus.textContent = msg;
+          submitStatus.classList.add('error');
+        }
+
+        function formatDate(isoStr) {
+          try {
+            const d = new Date(isoStr);
+            return isNaN(d.getTime()) ? isoStr : d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          } catch (e) {
+            return isoStr;
+          }
+        }
+      })();
+    </script>
+  </body>
+</html>
