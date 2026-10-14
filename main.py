@@ -64,7 +64,7 @@ def verify_official_auth(code: Optional[str]):
     if not code or code.strip() != required_code:
         raise HTTPException(status_code=401, detail="Invalid official access code.")
 
-@app.get("/api/health")
+@app.api_route("/api/health", methods=["GET", "HEAD"])
 def health():
     return {
         "status": "healthy",
@@ -170,7 +170,7 @@ def patch_classification(
         raise HTTPException(status_code=404, detail="Report not found.")
     return {"ok": True, "report": updated}
 
-@app.get("/", response_class=HTMLResponse)
+@app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 def index_page():
     base_dir = os.path.dirname(__file__)
     for name in ("index.html", "Index.html"):
