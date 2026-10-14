@@ -86,7 +86,7 @@ def extract_issue_signals(report_text: str, area_hint: str = "") -> Dict[str, An
     for model in candidate_models:
         url = f"{GEMINI_API_URL.format(model=model)}?key={api_key}"
         try:
-            response = requests.post(url, json=payload, timeout=6.0)
+            response = requests.post(url, json=payload, timeout=8.0)
             if response.status_code == 200:
                 data = response.json()
                 candidates = data.get("candidates", [])
