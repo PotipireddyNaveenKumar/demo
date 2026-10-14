@@ -25,6 +25,8 @@ from gemini_client import extract_issue_signals
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("civic_signal")
 
+from fastapi.exceptions import RequestValidationError
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
@@ -43,8 +45,15 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=400,
+        content={"detail": exc.errors(), "message": "Input validation error: text must be 8-1200 characters and area 2-100 characters."}
+    )
+
 class ReportSubmitRequest(BaseModel):
-    text: str = Field(..., min_length=5, max_length=1500)
+    text: str = Field(..., min_length=8, max_length=1200)
     area: str = Field(..., min_length=2, max_length=100)
     manual_category: Optional[str] = None
     manual_urgency: Optional[str] = None
